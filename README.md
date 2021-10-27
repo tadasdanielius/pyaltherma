@@ -6,7 +6,7 @@ Tested only with BRP069A61
 
 ```
 async with aiohttp.ClientSession() as session:
-    conn = DaikinWSConnection(session, daikin_ip)
+    conn = DaikinWSConnection(session, 'IP_ADDRESS')
     device = AlthermaController(conn)
     await device.discover_units()
     tank = device.hot_water_tank
