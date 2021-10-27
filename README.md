@@ -17,6 +17,7 @@ async with aiohttp.ClientSession() as session:
     await climate.turn_on()
     await conn.close()
 ```
+see example.py for more details.
 
 # Status
 Currently, the implementation is in early stage. At the moment it does not support schedules and energy consumption.
