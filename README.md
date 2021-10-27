@@ -4,7 +4,7 @@ Tested only with BRP069A61
 
 # Usage
 
-```
+```python3
 async with aiohttp.ClientSession() as session:
     conn = DaikinWSConnection(session, 'IP_ADDRESS')
     device = AlthermaController(conn)
