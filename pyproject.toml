@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "pyaltherma"
+version = "0.0.1"
+description = "Python scripts for controlling Daikin Altherma heat pump."
+authors = ["Tadas Danielius"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+aiohttp = "^3.7.4"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
