@@ -1,8 +1,14 @@
 [tool.poetry]
 name = "pyaltherma"
-version = "0.0.1"
+version = "0.0.3"
 description = "Python scripts for controlling Daikin Altherma heat pump."
+readme = "README.md"
 authors = ["Tadas Danielius"]
+license = "MIT"
+homepage = "https://github.com/tadasdanielius/pyaltherma"
+repository = "https://github.com/tadasdanielius/pyaltherma"
+keywords = ["daikin", "altherma", "heatpump"]
+classifiers = ["Development Status :: 3 - Alpha"]
 
 [tool.poetry.dependencies]
 python = "^3.7"

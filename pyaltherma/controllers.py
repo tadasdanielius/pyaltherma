@@ -360,16 +360,36 @@ class AlthermaController:
     def climate_control(self) -> AlthermaClimateControlController:
         return self._climate_control
 
-    def _guess_unit_type(self, i, unit, con):
-        sensors = con["Sensor"]
-        if "TankTemperature" in sensors:
-            unit_controller = AlthermaWaterTankController(unit, self._connection)
-            self._hot_water_tank = unit_controller
-            logger.info(f'Discovered unit: Water Tank Controller with id: {i}')
-        elif "LeavingWaterTemperatureCurrent" in sensors:
-            unit_controller = AlthermaClimateControlController(unit, self._connection)
-            self._climate_control = unit_controller
+    async def device_info(self):
+        """
+        Information about adapter
+        :return: details
+        """
+        info = {}
+        o = await self._connection.request('/[0]/MNCSE-node/deviceInfo')
+        info['serial_number'] = query_object(o, 'm2m:rsp/pc/m2m:dvi/dlb')
+        info['manufacturer'] = query_object(o, 'm2m:rsp/pc/m2m:dvi/man')
+        info['model_name'] = query_object(o, 'm2m:rsp/pc/m2m:dvi/mod')
+        info['duty'] = query_object(o, 'm2m:rsp/pc/m2m:dvi/dty')
+        info['miconID'] = query_object(o, 'm2m:rsp/pc/m2m:dvi/fwv')
+        info['firmware'] = query_object(o, 'm2m:rsp/pc/m2m:dvi/swv')
+        return info
+
+    async def firmware(self):
+        return await self._connection.request('/[0]/MNCSE-node/firmware')
+
+    async def _guess_unit(self, i, unit):
+        req = await self._connection.request(f'[0]/MNAE/{i}')
+        label = query_object(req, 'm2m:rsp/pc/m2m:cnt/lbl')
+        if label == 'function/SpaceHeating':
             logger.info(f'Discovered unit: Climate Control with id: {i}')
+            unit_controller = AlthermaClimateControlController(unit, self._connection)
+        elif label == 'function/DomesticHotWaterTank':
+            logger.info(f'Discovered unit: Climate Control with id: {i}')
+            unit_controller = AlthermaWaterTankController(unit, self._connection)
+        elif label == 'function/Adapter':
+            logger.info(f'Discovered unit: function adapter: {i}')
+            unit_controller = AlthermaUnitController(unit, self._connection)
         else:
             unit_controller = AlthermaUnitController(unit, self._connection)
             logger.warning(f'Discovered unrecognized unit with id: {i}')
@@ -384,14 +404,14 @@ class AlthermaController:
                 if resp_code != 2000:
                     logger.debug('No more devices found')
                     break
+                logger.debug(f'Discovered unit {i}')
                 _con = json.loads(query_object(resp_obj, 'm2m:rsp/pc/m2m:cin/con'))
                 unit = AlthermaUnit(i, _con)
-                if guess_units and "Sensor" in _con:
-                    unit_controller = self._guess_unit_type(i, unit, _con)
+                if guess_units:
+                    unit_controller = await self._guess_unit(i, unit)
                 else:
                     unit_controller = AlthermaUnitController(unit, self._connection)
                 self._altherma_units[i] = unit_controller
-                logger.debug(f'Discovered unit {i}')
             except AlthermaException:
                 logger.debug('No more devices found')
                 break
