@@ -56,10 +56,15 @@ class AlthermaUnit:
 
 
 class AlthermaUnitController:
-    def __init__(self, unit: AlthermaUnit, connection: DaikinWSConnection):
+    def __init__(self, unit: AlthermaUnit, connection: DaikinWSConnection, function='generic'):
         self._connection = connection
         self._unit = unit
         self._unit.init_unit()
+        self._function = function
+
+    @property
+    def unit(self):
+        return self._unit
 
     async def read(self, query_type, prop):
         destination = f'{self._dest}/{query_type}/{prop}/la'
@@ -97,7 +102,7 @@ class AlthermaUnitController:
         return results
 
     async def read_operations(self):
-        operations = list(self._unit._operations.keys())
+        operations = list(self._unit._operations.keys()) if isinstance(self._unit._operations, dict) else self._unit._operations
         results = {}
         for operation in operations:
             results[operation] = await self.read_operation(operation)
@@ -128,6 +133,20 @@ class AlthermaUnitController:
         else:
             payload = None
         return await self._connection.request(destination, payload=payload)
+
+    async def get_current_state(self):
+        sensors = await self.read_sensors()
+        operations = await self.read_operations()
+        states = await self.read_states()
+        return {
+            'sensors': sensors,
+            'operations': operations,
+            'states': states
+        }
+
+    @property
+    def unit_function(self):
+        return self._function
 
     @property
     def _dest(self):
@@ -353,6 +372,17 @@ class AlthermaController:
         self._base_unit: AlthermaUnitController = None
 
     @property
+    def ws_connection(self):
+        return self._connection
+
+    async def get_current_state(self):
+        status = {}
+        for unit in self._altherma_units.values():
+            unit_status = await unit.get_current_state()
+            status[unit.unit_function] = unit_status
+        return status
+
+    @property
     def hot_water_tank(self) -> AlthermaWaterTankController:
         return self._hot_water_tank
 
@@ -382,17 +412,19 @@ class AlthermaController:
         req = await self._connection.request(f'[0]/MNAE/{i}')
         label = query_object(req, 'm2m:rsp/pc/m2m:cnt/lbl')
         if label == 'function/SpaceHeating':
-            logger.info(f'Discovered unit: Climate Control with id: {i}')
-            unit_controller = AlthermaClimateControlController(unit, self._connection)
+            logger.info(f'Discovered unit: Climate Control with id: {i} {label}')
+            unit_controller = AlthermaClimateControlController(unit, self._connection, label)
+            self._climate_control = unit_controller
         elif label == 'function/DomesticHotWaterTank':
-            logger.info(f'Discovered unit: Climate Control with id: {i}')
-            unit_controller = AlthermaWaterTankController(unit, self._connection)
+            logger.info(f'Discovered unit: Water Tank Controller with id: {i} {label}')
+            unit_controller = AlthermaWaterTankController(unit, self._connection, label)
+            self._hot_water_tank = unit_controller
         elif label == 'function/Adapter':
-            logger.info(f'Discovered unit: function adapter: {i}')
-            unit_controller = AlthermaUnitController(unit, self._connection)
+            logger.info(f'Discovered unit: function adapter: {i} {label}')
+            unit_controller = AlthermaUnitController(unit, self._connection, label)
         else:
-            unit_controller = AlthermaUnitController(unit, self._connection)
-            logger.warning(f'Discovered unrecognized unit with id: {i}')
+            unit_controller = AlthermaUnitController(unit, self._connection, label)
+            logger.warning(f'Discovered unrecognized unit with id: {i} {label}')
         return unit_controller
 
     async def discover_units(self, guess_units=True):

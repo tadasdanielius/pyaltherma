@@ -5,7 +5,9 @@ from pyaltherma.comm import DaikinWSConnection
 from pyaltherma.controllers import AlthermaController, AlthermaClimateControlController, AlthermaUnitController, \
     AlthermaWaterTankController
 
+import logging
 
+logging.basicConfig(level=logging.DEBUG)
 async def print_header(cc: AlthermaUnitController):
     print(f"UNIT: {await cc.unit_name}")
     print(f"Indoor settings: {await cc.indoor_settings} / Indoor software: {await cc.indoor_software}")
@@ -81,15 +83,17 @@ async def water_tank_test(cc: AlthermaWaterTankController):
     print("=========================================================")
 
 async def main():
-    daikin_ip = '192.168.1.10'
+    daikin_ip = '192.168.31.18'
     async with aiohttp.ClientSession() as session:
         conn = DaikinWSConnection(session, daikin_ip)
         device = AlthermaController(conn)
         await device.discover_units()
         print(f'device error state: {await device.error_state}')
+        print(f'Device info: {await device.device_info()}')
         cc = device.climate_control
-        await climate_ctrl_test(cc)
-        await water_tank_test(device.hot_water_tank)
+        #await climate_ctrl_test(cc)
+        #await water_tank_test(device.hot_water_tank)
+        await device.get_current_state()
         await conn._client.close()
 
 

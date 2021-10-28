@@ -14,10 +14,18 @@ class DaikinWSConnection:
         self._session: ClientSession = session
         self._client = None
         self._timeout = timeout
+        self._address = f"ws://{self._host}/mca"
+
+    @property
+    def host(self):
+        return self._host
+
+    @property
+    def ws_address(self):
+        return self._address
 
     async def connect(self):
-        address = f"ws://{self._host}/mca"
-        self._client = await self._session.ws_connect(address)
+        self._client = await self._session.ws_connect(self.ws_address)
 
     async def close(self):
         await self._client.close()
