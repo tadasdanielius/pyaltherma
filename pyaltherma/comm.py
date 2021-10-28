@@ -20,7 +20,7 @@ class DaikinWSConnection:
         self._client = await self._session.ws_connect(address)
 
     async def close(self):
-        self._client.close()
+        await self._client.close()
 
     async def request(self, dest, payload=None, wait_for_response=True, assert_response_fn=None):
 
