@@ -35,6 +35,9 @@ class DaikinWSConnection:
         if self._client is None:
             await self.connect()
 
+        if self._client.closed:
+            await self.connect()
+
         pkg: Request = Request(dest, payload)
         data = pkg.serialize()
         logger.debug(f"[OUT]: {dest} {data}")
