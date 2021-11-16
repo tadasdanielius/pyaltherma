@@ -114,7 +114,7 @@ class AlthermaUnitController:
             key = operation if operation != 'Powerful' else 'powerful'
             conf = self._unit.operation_config[key]
 
-            if 'heating' in conf and isinstance(conf['heating'], dict):
+            if 'heating' in conf and isinstance(conf, dict) and isinstance(conf['heating'], dict):
                 conf = conf['heating']
                 conf['settable'] = True
 
