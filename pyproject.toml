@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyaltherma"
-version = "0.0.10"
+version = "0.0.11"
 description = "Python scripts for controlling Daikin Altherma heat pump."
 readme = "README.md"
 authors = ["Tadas Danielius"]
