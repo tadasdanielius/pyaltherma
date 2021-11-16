@@ -184,6 +184,10 @@ class AlthermaUnitController:
     async def remocon_settings(self):
         return await self.read(query_type='UnitInfo', prop='Version/RemoconSettings')
 
+    @property
+    async def model_number(self):
+        return await self.read(query_type='UnitInfo', prop='ModelNumber')
+
 
 class AlthermaWaterTankController(AlthermaUnitController):
 
