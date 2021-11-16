@@ -295,8 +295,7 @@ class AlthermaClimateControlController(AlthermaUnitController):
     async def operation_mode(self) -> ClimateControlMode:
         return ClimateControlMode(await self.read_operation('OperationMode'))
 
-    @operation_mode.setter
-    async def operation_mode(self, mode: ClimateControlMode):
+    async def set_operation_mode(self, mode: ClimateControlMode):
         await self.call_operation("OperationMode", mode.value)
 
     @property
