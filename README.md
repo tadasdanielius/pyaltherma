@@ -1,6 +1,6 @@
 # pyaltherma
 Python library to control Daikin Altherma heat pump
-Tested only with BRP069A61
+Tested only with BRP069A62
 
 # Usage
 
