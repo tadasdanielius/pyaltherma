@@ -16,23 +16,23 @@ class AlthermaUnit:
         self._sync_status = None
         self._sensors = []
         self._unit_status = []
-        self._operations = []
+        self._operations = {}
         self._initialized = False
 
     def init_unit(self):
         if not self._initialized:
             self._parse()
 
-    def _parse(self):
-        profile = self._profile
-        if 'SyncStatus' in profile:
-            self._sync_status = profile['SyncStatus']
-        if 'Sensor' in profile:
-            self._sensors = profile['Sensor']
-        if 'UnitStatus' in profile:
-            self._unit_status = profile['UnitStatus']
-        if 'Operation' in profile:
-            self._operations = profile['Operation']
+    def _parse(self, profile=None):
+        _profile = self._profile if profile is None else profile
+        if 'SyncStatus' in _profile:
+            self._sync_status = _profile['SyncStatus']
+        if 'Sensor' in _profile:
+            self._sensors = _profile['Sensor']
+        if 'UnitStatus' in _profile:
+            self._unit_status = _profile['UnitStatus']
+        if 'Operation' in _profile:
+            self._operations = _profile['Operation']
 
     @property
     def unit_states(self):
@@ -65,6 +65,17 @@ class AlthermaUnitController:
     @property
     def unit(self):
         return self._unit
+
+    async def refresh_profile(self):
+        dest = f"[0]/MNAE/{self._unit.unit_id}/UnitProfile/la"
+        resp_obj = await self._connection.request(dest)
+        resp_code = query_object(resp_obj, 'm2m:rsp/rsc')
+        if resp_code != 2000:
+            raise AlthermaUnitController('Failed to refresh device')
+        _con = json.loads(query_object(resp_obj, 'm2m:rsp/pc/m2m:cin/con'))
+
+        self._unit._parse(_con)
+        logger.debug(f'Unit {self._unit.unit_id} profile refreshed.')
 
     async def read(self, query_type, prop):
         destination = f'{self._dest}/{query_type}/{prop}/la'
