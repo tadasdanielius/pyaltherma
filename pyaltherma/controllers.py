@@ -1,5 +1,6 @@
 import json
 import logging
+import typing
 
 from pyaltherma.comm import DaikinWSConnection
 from pyaltherma.const import ClimateControlMode, ControlConfiguration
@@ -21,18 +22,22 @@ class AlthermaUnit:
 
     def init_unit(self):
         if not self._initialized:
-            self._parse()
+            self.parse()
 
-    def _parse(self, profile=None):
-        _profile = self._profile if profile is None else profile
-        if 'SyncStatus' in _profile:
-            self._sync_status = _profile['SyncStatus']
-        if 'Sensor' in _profile:
-            self._sensors = _profile['Sensor']
-        if 'UnitStatus' in _profile:
-            self._unit_status = _profile['UnitStatus']
-        if 'Operation' in _profile:
-            self._operations = _profile['Operation']
+    def parse(self, profile=None):
+        if profile is not None:
+            self._profile = profile
+        else:
+            profile = self._profile
+
+        if 'SyncStatus' in profile:
+            self._sync_status = profile['SyncStatus']
+        if 'Sensor' in profile:
+            self._sensors = profile['Sensor']
+        if 'UnitStatus' in profile:
+            self._unit_status = profile['UnitStatus']
+        if 'Operation' in profile:
+            self._operations = profile['Operation']
 
     @property
     def unit_states(self):
@@ -41,6 +46,10 @@ class AlthermaUnit:
     @property
     def operation_list(self):
         return list(self._operations.keys())
+
+    @property
+    def operations(self):
+        return self._operations
 
     @property
     def operation_config(self):
@@ -71,11 +80,11 @@ class AlthermaUnitController:
         resp_obj = await self._connection.request(dest)
         resp_code = query_object(resp_obj, 'm2m:rsp/rsc')
         if resp_code != 2000:
-            raise AlthermaUnitController('Failed to refresh device')
+            raise AlthermaException('Failed to refresh device')
         _con = json.loads(query_object(resp_obj, 'm2m:rsp/pc/m2m:cin/con'))
 
-        self._unit._parse(_con)
-        logger.debug(f'Unit {self._unit.unit_id} profile refreshed.')
+        self._unit.parse(_con)
+        logger.debug(f'Unit {self._unit.unit_id}/{self._function} profile refreshed.')
 
     async def read(self, query_type, prop):
         destination = f'{self._dest}/{query_type}/{prop}/la'
@@ -113,7 +122,8 @@ class AlthermaUnitController:
         return results
 
     async def read_operations(self):
-        operations = list(self._unit._operations.keys()) if isinstance(self._unit._operations, dict) else self._unit._operations
+        operations = list(self._unit.operations.keys()) \
+            if isinstance(self._unit.operations, dict) else self._unit.operations
         results = {}
         for operation in operations:
             results[operation] = await self.read_operation(operation)
@@ -198,6 +208,9 @@ class AlthermaUnitController:
     @property
     async def model_number(self):
         return await self.read(query_type='UnitInfo', prop='ModelNumber')
+
+    def __str__(self):
+        return self._function
 
 
 class AlthermaWaterTankController(AlthermaUnitController):
@@ -383,7 +396,7 @@ class AlthermaController:
         self._altherma_units = {}
         self._hot_water_tank = None
         self._climate_control = None
-        self._base_unit: AlthermaUnitController = None
+        self._base_unit: typing.Optional[AlthermaUnitController] = None
 
     @property
     def ws_connection(self):
@@ -421,6 +434,13 @@ class AlthermaController:
 
     async def firmware(self):
         return await self._connection.request('/[0]/MNCSE-node/firmware')
+
+    async def refresh(self):
+        for u in self._altherma_units.values():
+            try:
+                await u.refresh_profile()
+            except AlthermaUnitController:
+                logger.error(f'Failed to refresh profile for unit {u}')
 
     async def _guess_unit(self, i, unit):
         req = await self._connection.request(f'[0]/MNAE/{i}')
