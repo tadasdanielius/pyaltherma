@@ -69,3 +69,82 @@ class ConsumptionType:
     @property
     def consumption_type(self):
         return self._consumption_type
+
+
+class AlthermaUnit:
+    def __init__(self, unit_id, profile, unit_function="function/Unknown"):
+        self._profile = profile
+        self._unit_id = unit_id
+        self._sync_status = None
+        self._sensors = []
+        self._unit_status = []
+        self._operations = {}
+        self._initialized = False
+        self._consumptions = {}
+        self._unit_function = unit_function
+
+    def init_unit(self):
+        if not self._initialized:
+            self.parse()
+
+    def parse(self, profile=None):
+        if profile is not None:
+            self._profile = profile
+        else:
+            profile = self._profile
+
+        if 'SyncStatus' in profile:
+            self._sync_status = profile['SyncStatus']
+        if 'Sensor' in profile:
+            self._sensors = profile['Sensor']
+        if 'UnitStatus' in profile:
+            self._unit_status = profile['UnitStatus']
+        if 'Operation' in profile:
+            self._operations = profile['Operation']
+
+        if 'Consumption' in profile:
+            try:
+                for consumption_type, consumption_profile in profile['Consumption'].items():
+                    self._consumptions[consumption_type] = ConsumptionType(consumption_type, consumption_profile)
+            except:
+                self._consumptions = {}
+
+    @property
+    def unit_function(self):
+        return self._unit_function
+
+    @property
+    def consumptions(self):
+        return self._consumptions
+
+    @property
+    def consumption_types(self):
+        return list(self._consumptions.keys())
+
+    @property
+    def unit_states(self):
+        return self._unit_status
+
+    @property
+    def operation_list(self):
+        return list(self._operations.keys())
+
+    @property
+    def operations(self):
+        return self._operations
+
+    @property
+    def operation_config(self):
+        return self._operations
+
+    @property
+    def sensor_list(self):
+        return self._sensors
+
+    @property
+    def unit_id(self):
+        return self._unit_id
+
+    @property
+    def consumptions_available(self):
+        return len(self._consumptions.keys()) > 0

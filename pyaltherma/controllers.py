@@ -5,84 +5,10 @@ import typing
 from pyaltherma.comm import DaikinWSConnection
 from pyaltherma.const import ClimateControlMode, ControlConfiguration
 from pyaltherma.errors import AlthermaException
-from pyaltherma.profile import ConsumptionType
+from pyaltherma.profile import AlthermaUnit
 from pyaltherma.utils import query_object
 
 logger = logging.getLogger(__name__)
-
-
-class AlthermaUnit:
-    def __init__(self, unit_id, profile):
-        self._profile = profile
-        self._unit_id = unit_id
-        self._sync_status = None
-        self._sensors = []
-        self._unit_status = []
-        self._operations = {}
-        self._initialized = False
-        self._consumptions = {}
-
-    def init_unit(self):
-        if not self._initialized:
-            self.parse()
-
-    def parse(self, profile=None):
-        if profile is not None:
-            self._profile = profile
-        else:
-            profile = self._profile
-
-        if 'SyncStatus' in profile:
-            self._sync_status = profile['SyncStatus']
-        if 'Sensor' in profile:
-            self._sensors = profile['Sensor']
-        if 'UnitStatus' in profile:
-            self._unit_status = profile['UnitStatus']
-        if 'Operation' in profile:
-            self._operations = profile['Operation']
-
-        if 'Consumption' in profile:
-            try:
-                for consumption_type, consumption_profile in profile['Consumption'].items():
-                    self._consumptions[consumption_type] = ConsumptionType(consumption_type, consumption_profile)
-            except:
-                self._consumptions = {}
-
-    @property
-    def consumptions(self):
-        return self._consumptions
-
-    @property
-    def consumption_types(self):
-        return list(self._consumptions.keys())
-
-    @property
-    def unit_states(self):
-        return self._unit_status
-
-    @property
-    def operation_list(self):
-        return list(self._operations.keys())
-
-    @property
-    def operations(self):
-        return self._operations
-
-    @property
-    def operation_config(self):
-        return self._operations
-
-    @property
-    def sensor_list(self):
-        return self._sensors
-
-    @property
-    def unit_id(self):
-        return self._unit_id
-
-    @property
-    def consumptions_available(self):
-        return len(self._consumptions.keys()) > 0
 
 
 class AlthermaUnitController:
@@ -91,6 +17,13 @@ class AlthermaUnitController:
         self._unit = unit
         self._unit.init_unit()
         self._function = function
+
+        self._unit_name = None
+        self._indoor_settings = None
+        self._indoor_software = None
+        self._outdoor_software = None
+        self._remocon_settings = None
+        self._remocon_software = None
 
     @property
     def unit(self):
@@ -220,31 +153,44 @@ class AlthermaUnitController:
 
     @property
     async def unit_name(self) -> str:
-        return await self.read('UnitIdentifier', 'Name')
+        if self._unit_name is None:
+            self._unit_name = await self.read('UnitIdentifier', 'Name')
+        return self._unit_name
 
     @property
     async def indoor_settings(self):
-        return await self.read(query_type='UnitInfo', prop='Version/IndoorSettings')
+        if self._indoor_settings is None:
+            self._indoor_settings = await self.read(query_type='UnitInfo', prop='Version/IndoorSettings')
 
     @property
     async def indoor_software(self):
-        return await self.read(query_type='UnitInfo', prop='Version/IndoorSoftware')
+        if self._indoor_software is None:
+            self._indoor_software = await self.read(query_type='UnitInfo', prop='Version/IndoorSoftware')
+        return self._indoor_software
 
     @property
     async def outdoor_software(self):
-        return await self.read(query_type='UnitInfo', prop='Version/OutdoorSoftware')
+        if self._outdoor_software is None:
+            self._outdoor_software = await self.read(query_type='UnitInfo', prop='Version/OutdoorSoftware')
+        return self._outdoor_software
 
     @property
     async def remocon_software(self):
-        return await self.read(query_type='UnitInfo', prop='Version/RemoconSoftware')
+        if self._remocon_software is None:
+            self._remocon_software = await self.read(query_type='UnitInfo', prop='Version/RemoconSoftware')
+        return self._remocon_software
 
     @property
     async def remocon_settings(self):
-        return await self.read(query_type='UnitInfo', prop='Version/RemoconSettings')
+        if self._remocon_settings is None:
+            self._remocon_settings = await self.read(query_type='UnitInfo', prop='Version/RemoconSettings')
+        return self._remocon_settings
 
     @property
     async def model_number(self):
-        return await self.read(query_type='UnitInfo', prop='ModelNumber')
+        if self._model_number is None:
+            self._model_number = await self.read(query_type='UnitInfo', prop='ModelNumber')
+        return self._model_number
 
     def __str__(self):
         return self._function
@@ -480,9 +426,7 @@ class AlthermaController:
             except AlthermaUnitController:
                 logger.error(f'Failed to refresh profile for unit {u}')
 
-    async def _guess_unit(self, i, unit):
-        req = await self._connection.request(f'[0]/MNAE/{i}')
-        label = query_object(req, 'm2m:rsp/pc/m2m:cnt/lbl')
+    async def _guess_unit(self, i, unit, label):
         if label == 'function/SpaceHeating':
             logger.info(f'Discovered unit: Climate Control with id: {i} {label}')
             unit_controller = AlthermaClimateControlController(unit, self._connection, label)
@@ -510,20 +454,33 @@ class AlthermaController:
                     break
                 logger.debug(f'Discovered unit {i}')
                 _con = json.loads(query_object(resp_obj, 'm2m:rsp/pc/m2m:cin/con'))
-                self._profiles.append({
-                    'idx': i, 'dest': dest, 'profile': _con
-                })
-                unit = AlthermaUnit(i, _con)
+
+                req = await self._connection.request(f'[0]/MNAE/{i}')
+                label = query_object(req, 'm2m:rsp/pc/m2m:cnt/lbl')
+
+                unit = AlthermaUnit(i, _con, label)
                 if guess_units:
-                    unit_controller = await self._guess_unit(i, unit)
+                    unit_controller = await self._guess_unit(i, unit, label)
                 else:
                     unit_controller = AlthermaUnitController(unit, self._connection)
-                self._altherma_units[i] = unit_controller
+                unit_name = await unit_controller.unit_name
+                unit_name = unit_name if unit_name is not None else 0
+
+                self._profiles.append({
+                    'idx': i, 'dest': dest, 'profile': _con, 'label': label, 'unit_name': unit_name
+                })
+
+                self._altherma_units[label] = unit_controller
             except AlthermaException:
                 logger.debug('No more devices found')
                 break
         # Likely to be general unit
-        self._base_unit = self._altherma_units[0]
+        if 'function/Adapter' in self._altherma_units:
+            self._base_unit = self._altherma_units['function/Adapter']
+        elif 0 in self._altherma_units:
+            self._base_unit = self._altherma_units[0]
+        else:
+            self._base_unit = None
 
     @property
     def altherma_units(self):
