@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyaltherma"
-version = "0.0.13"
+version = "0.0.14"
 description = "Python scripts for controlling Daikin Altherma heat pump using BRP069A62 LAN adapter."
 readme = "README.md"
 authors = ["Tadas Danielius"]

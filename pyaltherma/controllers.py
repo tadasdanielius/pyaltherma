@@ -397,6 +397,7 @@ class AlthermaController:
         self._hot_water_tank = None
         self._climate_control = None
         self._base_unit: typing.Optional[AlthermaUnitController] = None
+        self._profiles = []
 
     @property
     def ws_connection(self):
@@ -472,6 +473,9 @@ class AlthermaController:
                     break
                 logger.debug(f'Discovered unit {i}')
                 _con = json.loads(query_object(resp_obj, 'm2m:rsp/pc/m2m:cin/con'))
+                self._profiles.append({
+                    'idx': i, 'dest': dest, 'profile': _con
+                })
                 unit = AlthermaUnit(i, _con)
                 if guess_units:
                     unit_controller = await self._guess_unit(i, unit)
@@ -483,6 +487,10 @@ class AlthermaController:
                 break
         # Likely to be general unit
         self._base_unit = self._altherma_units[0]
+
+    @property
+    def profiles(self):
+        return self._profiles
 
     @property
     async def error_state(self) -> bool:
