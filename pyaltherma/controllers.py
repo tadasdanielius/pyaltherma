@@ -24,6 +24,7 @@ class AlthermaUnitController:
         self._outdoor_software = None
         self._remocon_settings = None
         self._remocon_software = None
+        self._model_number = None
 
     @property
     def unit(self):
