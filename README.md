@@ -20,4 +20,4 @@ async with aiohttp.ClientSession() as session:
 see example.py for more details.
 
 # Status
-Currently, the implementation is in early stage. At the moment it does not support schedules and energy consumption.
+Currently, the implementation is in early stage. At the moment it does not support schedules.

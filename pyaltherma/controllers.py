@@ -5,6 +5,7 @@ import typing
 from pyaltherma.comm import DaikinWSConnection
 from pyaltherma.const import ClimateControlMode, ControlConfiguration
 from pyaltherma.errors import AlthermaException
+from pyaltherma.profile import ConsumptionType
 from pyaltherma.utils import query_object
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,7 @@ class AlthermaUnit:
         self._unit_status = []
         self._operations = {}
         self._initialized = False
+        self._consumptions = {}
 
     def init_unit(self):
         if not self._initialized:
@@ -38,6 +40,21 @@ class AlthermaUnit:
             self._unit_status = profile['UnitStatus']
         if 'Operation' in profile:
             self._operations = profile['Operation']
+
+        if 'Consumption' in profile:
+            try:
+                for consumption_type, consumption_profile in profile['Consumption'].items():
+                    self._consumptions[consumption_type] = ConsumptionType(consumption_type, consumption_profile)
+            except:
+                self._consumptions = {}
+
+    @property
+    def consumptions(self):
+        return self._consumptions
+
+    @property
+    def consumption_types(self):
+        return list(self._consumptions.keys())
 
     @property
     def unit_states(self):
@@ -63,6 +80,10 @@ class AlthermaUnit:
     def unit_id(self):
         return self._unit_id
 
+    @property
+    def consumptions_available(self):
+        return len(self._consumptions.keys()) > 0
+
 
 class AlthermaUnitController:
     def __init__(self, unit: AlthermaUnit, connection: DaikinWSConnection, function='generic'):
@@ -86,8 +107,11 @@ class AlthermaUnitController:
         self._unit.parse(_con)
         logger.debug(f'Unit {self._unit.unit_id}/{self._function} profile refreshed.')
 
-    async def read(self, query_type, prop):
-        destination = f'{self._dest}/{query_type}/{prop}/la'
+    async def read(self, query_type, prop=None):
+        if prop is not None:
+            destination = f'{self._dest}/{query_type}/{prop}/la'
+        else:
+            destination = f'{self._dest}/{query_type}/la'
         result = await self._connection.request(destination)
         try:
             result_value = query_object(result, 'm2m:rsp/pc/m2m:cin/con')
@@ -120,6 +144,13 @@ class AlthermaUnitController:
         for state in self._unit.unit_states:
             results[state] = await self.read_state(state)
         return results
+
+    async def read_consumptions(self):
+        if self.unit.consumptions_available:
+            consumption_str = await self.read('Consumption')
+            return json.loads(consumption_str)
+        else:
+            return {}
 
     async def read_operations(self):
         operations = list(self._unit.operations.keys()) \
@@ -159,10 +190,12 @@ class AlthermaUnitController:
         sensors = await self.read_sensors()
         operations = await self.read_operations()
         states = await self.read_states()
+        consumptions = await self.read_consumptions()
         return {
             'sensors': sensors,
             'operations': operations,
-            'states': states
+            'states': states,
+            'consumption': consumptions
         }
 
     @property
