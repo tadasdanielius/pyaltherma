@@ -199,6 +199,10 @@ class AlthermaUnitController:
         }
 
     @property
+    def unit(self):
+        return self._unit
+
+    @property
     def unit_function(self):
         return self._function
 
@@ -520,6 +524,10 @@ class AlthermaController:
                 break
         # Likely to be general unit
         self._base_unit = self._altherma_units[0]
+
+    @property
+    def altherma_units(self):
+        return self._altherma_units
 
     @property
     def profiles(self):
