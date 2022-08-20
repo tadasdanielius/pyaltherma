@@ -7,6 +7,8 @@ class ClimateControlMode(Enum):
     Auto = "auto"
     Cooling = "cooling"
     Heating = "heating"
+    Heating_Day = "heating_day"
+    Heating_Night = "heating_night"
 
 
 class ControlConfiguration(Enum):

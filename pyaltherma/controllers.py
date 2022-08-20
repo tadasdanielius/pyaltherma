@@ -94,7 +94,7 @@ class AlthermaUnitController:
             results[operation] = await self.read_operation(operation)
         return results
 
-    async def call_operation(self, operation, value=None):
+    async def call_operation(self, operation, value=None, validate=True):
         destination = f'{self._dest}/Operation/{operation}'
         if value is not None:
             key = operation if operation != 'Powerful' else 'powerful'
@@ -108,7 +108,12 @@ class AlthermaUnitController:
                 v = str(value) if key == 'powerful' else value
                 valid = v in conf
             else:
-                valid = conf['settable'] and conf['minValue'] <= value <= conf['maxValue']
+                if validate:
+                    if 'settable' not in conf:
+                        conf['settable'] = True
+                    valid = conf['settable'] and conf['minValue'] <= value <= conf['maxValue']
+                else:
+                    valid = True
             if not valid:
                 raise AlthermaException(
                     f'Invalid argument {value} for operation {operation} or operation is not settable.')
@@ -432,7 +437,7 @@ class AlthermaController:
             logger.info(f'Discovered unit: Climate Control with id: {i} {label}')
             unit_controller = AlthermaClimateControlController(unit, self._connection, label)
             self._climate_control = unit_controller
-        elif label == 'function/DomesticHotWaterTank':
+        elif label == 'function/DomesticHotWaterTank' or 'function/DomesticHotWater':
             logger.info(f'Discovered unit: Water Tank Controller with id: {i} {label}')
             unit_controller = AlthermaWaterTankController(unit, self._connection, label)
             self._hot_water_tank = unit_controller
