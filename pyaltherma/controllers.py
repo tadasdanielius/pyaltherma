@@ -114,9 +114,11 @@ class AlthermaUnitController:
                     valid = conf['settable'] and conf['minValue'] <= value <= conf['maxValue']
                 else:
                     valid = True
-            if not valid and validate:
-                raise AlthermaException(
-                    f'Invalid argument {value} for operation {operation} or operation is not settable.')
+            #if validate:
+            if not valid:
+                #raise AlthermaException(
+                #    f'Invalid argument {value} for operation {operation} or operation is not settable.')
+                logger.warning("Invalid argument {value} for operation {operation} or operation is not settable.")
             payload = {
                 'con': value,
                 'cnf': 'text/plain:0'
