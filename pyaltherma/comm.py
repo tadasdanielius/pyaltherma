@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 from aiohttp import ClientSession
@@ -15,6 +16,7 @@ class DaikinWSConnection:
         self._client = None
         self._timeout = timeout
         self._address = f"ws://{self._host}/mca"
+        self._lock = asyncio.Lock()
 
     @property
     def host(self):
@@ -26,11 +28,18 @@ class DaikinWSConnection:
 
     async def connect(self):
         self._client = await self._session.ws_connect(self.ws_address)
+        logger.debug(f'Connected to {self.ws_address}')
 
     async def close(self):
-        await self._client.close()
+        async with self._lock:
+            await self._client.close()
 
     async def request(self, dest, payload=None, wait_for_response=True, assert_response_fn=None):
+        async with self._lock:
+            result = await self._request(dest, payload, wait_for_response, assert_response_fn)
+        return result
+
+    async def _request(self, dest, payload=None, wait_for_response=True, assert_response_fn=None):
 
         if self._client is None:
             await self.connect()
