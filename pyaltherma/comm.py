@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class DaikinWSConnection:
-    def __init__(self, session: ClientSession, host, timeout=None):
+    def __init__(self, session: ClientSession, host, timeout=30):
         self._host = host
         self._session: ClientSession = session
         self._client = None
@@ -32,7 +32,8 @@ class DaikinWSConnection:
 
     async def close(self):
         async with self._lock:
-            await self._client.close()
+            if self._client is not None:
+                await self._client.close()
 
     async def request(self, dest, payload=None, wait_for_response=True, assert_response_fn=None):
         async with self._lock:
@@ -50,15 +51,26 @@ class DaikinWSConnection:
         pkg: Request = Request(dest, payload)
         data = pkg.serialize()
         logger.debug(f"[OUT]: {dest} {data}")
-        _ = await self._client.send_str(data)
-        if wait_for_response:
-            response_str = await self._client.receive_str(timeout=self._timeout)
+        try:
+            async with asyncio.timeout(self._timeout):
+                _ = await self._client.send_str(data)
+                if not wait_for_response:
+                    return None
+                response = await self._receive(pkg.rqi)
+        except BaseException:
+            # Socket state is unknown (e.g. reply still in flight): drop it, next request reconnects
+            await self._client.close()
+            raise
+
+        if callable(assert_response_fn):
+            assert_response_fn(response)
+        return response
+
+    async def _receive(self, rqi):
+        while True:
+            response_str = await self._client.receive_str()
             logger.debug(f"[IN]: {response_str}")
             response = json.loads(response_str)
-            if callable(assert_response_fn):
-                assert_response_fn(response)
-
-        else:
-            response = None
-
-        return response
+            if response.get('m2m:rsp', {}).get('rqi') == rqi:
+                return response
+            logger.debug(f'Skipping response not matching request {rqi}')

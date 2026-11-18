@@ -4,7 +4,8 @@ import json
 
 class Request:
     def __init__(self, dest, payload=None, user_agent='pyaltherma'):
-        request = {'fr': user_agent, 'rqi': uuid.uuid4().hex[0:5], 'op': 2, 'to': dest}
+        self.rqi = uuid.uuid4().hex[0:5]
+        request = {'fr': user_agent, 'rqi': self.rqi, 'op': 2, 'to': dest}
         if payload:
             request['op'] = 1
             request['ty'] = 4
