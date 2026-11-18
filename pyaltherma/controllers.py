@@ -10,6 +10,10 @@ from pyaltherma.utils import query_object
 
 logger = logging.getLogger(__name__)
 
+# Values the adapter returns instead of a 4004 when a unit has no such data
+# (seen on D2CND: unset UnitIdentifier/Name, missing settings, absent outdoor sensor)
+NO_VALUE_PLACEHOLDERS = ('$NULL', '--', -3276.5)
+
 
 class AlthermaUnitController:
     def __init__(self, unit: AlthermaUnit, connection: DaikinWSConnection, function='generic'):
@@ -51,6 +55,8 @@ class AlthermaUnitController:
             result_value = query_object(result, 'm2m:rsp/pc/m2m:cin/con')
         except:
             raise AlthermaException(f'Failed to read {query_type} {prop} data.')
+        if result_value in NO_VALUE_PLACEHOLDERS:
+            return None
         return result_value
 
     async def read_sensor(self, sensor):
@@ -98,6 +104,8 @@ class AlthermaUnitController:
         destination = f'{self._dest}/Operation/{operation}'
         if value is not None:
             key = operation if operation != 'Powerful' else 'powerful'
+            if key not in self._unit.operation_config:
+                raise AlthermaException(f'Operation {operation} is not supported by unit {self._function}.')
             conf = self._unit.operation_config[key]
 
             if 'heating' in conf and isinstance(conf, dict) and isinstance(conf['heating'], dict):
@@ -431,7 +439,7 @@ class AlthermaController:
         for u in self._altherma_units.values():
             try:
                 await u.refresh_profile()
-            except AlthermaUnitController:
+            except AlthermaException:
                 logger.error(f'Failed to refresh profile for unit {u}')
 
     async def _guess_unit(self, i, unit, label):
@@ -439,7 +447,7 @@ class AlthermaController:
             logger.info(f'Discovered unit: Climate Control with id: {i} {label}')
             unit_controller = AlthermaClimateControlController(unit, self._connection, label)
             self._climate_control = unit_controller
-        elif label == 'function/DomesticHotWaterTank' or 'function/DomesticHotWater':
+        elif label in ('function/DomesticHotWaterTank', 'function/DomesticHotWater'):
             logger.info(f'Discovered unit: Water Tank Controller with id: {i} {label}')
             unit_controller = AlthermaWaterTankController(unit, self._connection, label)
             self._hot_water_tank = unit_controller
